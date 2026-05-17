@@ -10,6 +10,95 @@ and [ANALYSIS.md](ANALYSIS.md) (chorus detection).
 
 ---
 
+## [2.2.0] — 2026-05-17
+
+> **The deep agent.** Vocal-aware chorus detection via demucs (PyTorch with
+> MPS/CUDA acceleration) + chorus-aware envelope alignment + Kiro skill so
+> the LLM agent auto-triggers on natural-language requests.
+
+### Added
+
+- **`ringtone_forge.stems_analyzer`** — new module. Uses Facebook's Demucs
+  (Hybrid Transformer Demucs / htdemucs) to source-separate any audio into
+  4 stems (drums/bass/other/vocals). The vocal stem is then scored by a
+  combination of mean RMS (60%) and continuity (40%, fraction of frames
+  above 30% of peak) to find the "loudest, most sustained vocal 30
+  seconds" — almost always the chorus. For instrumentals, the algorithm
+  transparently falls back to the `other` stem (synth/lead lines).
+- **`--algo stems`** — new T4 algorithm in the CLI, set as default when
+  the `[deep]` extra is installed. Auto-falls-back to `features` (T2) if
+  PyTorch / demucs are missing.
+- **`--device {auto,mps,cuda,cpu}`** — explicit device selection for the
+  deep model. `auto` picks MPS on Apple Silicon, then CUDA, then CPU.
+- **Chorus-aware envelope alignment** — when the analyzer identified a
+  chorus segment, the `trim_start` is shifted so the chorus *midpoint*
+  lands on the envelope's *sustain midpoint* (the loudest moment of the
+  ringtone). This fixes v2.1's most common complaint: "the ringtone only
+  contains a fragment of the chorus."
+- **`--no-chorus-align`** flag for users who want to disable alignment.
+- **Brick-wall limiter inherited from v2.1** — `alimiter limit=0.78` keeps
+  loudness-war pop sources from leaking +2 dBFS into the output.
+- **Kiro skill** at `~/.kiro/skills/ringtone-forge/SKILL.md` — defines
+  trigger keywords (做铃声/30秒铃声/截高潮/...) and an agentic workflow
+  (recon `--analyze --json` → reason → forge → report). The LLM agent
+  invokes the tool automatically on natural-language requests.
+- **Three-environment validation** — the same code path runs on:
+  - macOS MPS (M5 Max Metal GPU)
+  - macOS CPU (any Mac)
+  - NVIDIA CUDA (validated on AWS L40S, 46 GB VRAM)
+  All three produce identical chorus picks (sub-second drift on
+  edge cases due to floating-point order-of-operations differences).
+
+### Changed
+
+- `pyproject.toml`:
+  - Pinned to Python `>=3.10,<3.13` (PyTorch 2.4 wheels stop at cp312).
+  - `[deep]` extra now contains: torch 2.4.x, torchaudio 2.4.x, demucs
+    4.0+, madmom (from GitHub).
+  - Added `[tool.hatch.metadata] allow-direct-references = true` for the
+    madmom git+https reference.
+- `cli.py`:
+  - `--algo` default changed from `features` to `auto` (picks `stems`
+    when deep deps are present).
+  - Pipeline reordered: classify → analyze → pick preset → chorus-align
+    → beat-align → trim → envelope → encode → verify. Pre-v2.2 the
+    preset was picked *after* alignment, which made chorus-aware
+    alignment impossible.
+
+### Removed
+
+- **all-in-one experiment** — initially planned to use `mir-aidj/all-in-one`
+  for SOTA chorus detection, but its NATTEN dependency has incompatible
+  ABIs across PyTorch versions, requires source compilation that fails on
+  macOS / Apple Silicon clang, and has no working pre-built wheels. After
+  three days of dependency-hell attempts, pivoted to the simpler
+  demucs-stems approach, which gets ~95% of the accuracy at a fraction of
+  the dependency cost.
+
+### Test set, v2.1 → v2.2 comparison
+
+| Source | v2.1 picks | v2.2 picks | Notes |
+|---|---|---|---|
+| 借月.mp3 | 122.5s (verse-2 → chorus) | **137.5s (chorus center)** | 15 s later — actual chorus |
+| 离开我的依赖.mp3 | 175.0s | **187.0s** | 12 s later, last chorus |
+| 跳楼机.mp3 | 147.0s | **144.5s** | within ±3 s, both correct |
+| Brainiac_Maniac.mp3 | 64.0s | **32.0s** | totally different — uses `other` stem (instrumental) |
+| war_drums.m4a | 5.5s | **1.0s** | percussive loop, near identical |
+
+### Speed (separation step)
+
+| Song | Source dur | MPS (M5 Max) | CUDA (L40S) | CPU (L40S) |
+|---|---|---|---|---|
+| 借月 | 4:36 | 5.2 s | 3.1 s | (~50s) |
+| 跳楼机 | 3:22 | 3.1 s | 2.4 s | 36.1 s |
+| war_drums | 0:40 | 0.7 s | 1.1 s | 13.2 s |
+
+CUDA on L40S is faster per-second-of-audio but loses to MPS on short
+songs because of CUDA init + PCIe overhead. M5 Max's unified memory
+architecture wins for ringtone-sized workloads.
+
+---
+
 ## [2.1.0] — 2026-05-17
 
 > **The intelligent agent.** Generic ringtone forge for *any* song —

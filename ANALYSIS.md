@@ -270,9 +270,115 @@ When the agent gets it wrong, three knobs fix it:
 | Wrong 30-second window picked                | `--start 96.0`                  |
 | Want raw trim (no envelope, no encode)       | `--no-envelope`                 |
 | Want analysis report only (no file written)  | `--analyze`                     |
-| Want a different ranking algorithm           | `--algo {loudness,features,structural}` |
+| Want a different ranking algorithm           | `--algo {loudness,features,structural,stems}` |
 | Want machine-readable analysis output        | `--analyze --json`              |
+| Disable chorus-to-sustain alignment          | `--no-chorus-align`             |
 
 The agent never silently *requires* one of these; the defaults work for
 the test set. They exist because a human ear should always have the
 final word.
+
+---
+
+## 8. v2.2 — Deep stems-aware chorus detection (default when `[deep]` extras installed)
+
+The four heuristics in §2 work on the **mixed** audio. A loud guitar in a
+verse can outscore a quieter chorus moment. v2.2 adds a fourth tier that
+uses a real source-separation neural network to look at **only the vocal
+track** when scoring.
+
+### Algorithm — T4: vocal-aware chorus
+
+```
+1. Load source via librosa (handles mp3/m4a/wav/flac).
+2. Demucs (htdemucs) source-separates → 4 stems: drums/bass/other/vocals.
+3. On the vocals stem, compute RMS at 100 ms hops.
+4. Slide a 30 s window over the RMS trace; score each candidate by:
+       0.60 · normalised(mean RMS)        # vocal energy
+     + 0.40 · continuity(window, 30%)     # fraction of frames ≥ 30% of peak
+   The continuity term penalises "single shouted note then silence" —
+   verses often have one loud line; choruses sustain.
+5. Highest-scoring window = predicted chorus.
+6. If vocals stem peak < −46 dBFS (instrumental track), retry on the
+   ``other`` stem (synth/lead lines).
+```
+
+### Why this beats heuristics
+
+A vocal stem peaks loudest exactly during the chorus, by design of how
+pop songs are mixed. There is no other section where the singer is
+fully extended *and* sustained. Verses are sung at half-energy with
+gaps between lines; bridges modulate or drop in volume; outros taper.
+The chorus is the unambiguous winner *on the vocal track alone*, even
+when it isn't the loudest section of the *mix*.
+
+### Hardware acceleration (PyTorch device)
+
+Demucs is a PyTorch model. The same code path runs on three backends:
+
+| Backend | Hardware | Speed (4-min vocal song, separation only) |
+|---------|----------|-------------------------------------------|
+| MPS     | Apple Silicon Metal GPU | 3–5 s    |
+| CUDA    | NVIDIA GPU (L40S)       | 2–3 s    |
+| CPU     | x86_64 / ARM            | 30–55 s  |
+
+`--device auto` picks `mps` on Apple Silicon, then `cuda`, then `cpu`.
+Device selection is lazy: PyTorch is only imported if T4 is actually
+used, so the baseline `uv sync` install (no `[deep]` extras) is unaffected.
+
+### Chorus-aware envelope alignment
+
+Once we know the chorus is, say, [60 s, 90 s] in the source, we don't
+just trim [60, 90]. The envelope's loudest moment (the sustain
+midpoint) is at ringtone-time `R + S/2` — for the vocal preset that's
+`5 + 22/2 = 16 s`. We set `trim_start = chorus_mid − 16` so the
+chorus midpoint lands exactly on the envelope's loudest moment:
+
+```
+chorus_start = 60s, chorus_end = 90s, chorus_mid = 75s
+preset = vocal: rise=5s, sustain=22s
+sustain_mid_in_ringtone = 16s
+trim_start = 75 − 16 = 59s
+30 s ringtone window = [59, 89] in source
+
+Source time:        59  64  69  75  81  86  89
+Ringtone time:       0   5  10  16  22  27  30
+Envelope amplitude: 0.5  1   1   1   1   1   0
+                  rise|sustain───────────|drop
+```
+
+The verse end naturally fades up under the envelope's rise, the chorus
+body straddles the 100% sustain plateau, and the linear drop covers
+the chorus tail. This single change resolves v2.1's most common
+failure mode ("the ringtone only contains the first 5 seconds of the
+chorus").
+
+`--no-chorus-align` disables this if you want the v2.1 behaviour.
+
+### Test set, v2.1 → v2.2 picks
+
+| Source | v2.1 (T2) picks | v2.2 (T4) picks | Δ | Verdict |
+|---|---|---|---|---|
+| 借月.mp3 | 122.5s | 137.5s | +15 s later | v2.2 lands inside the actual chorus |
+| 离开我的依赖.mp3 | 175.0s | 187.0s | +12 s later | v2.2 catches the final/loudest chorus |
+| 跳楼机.mp3 | 147.0s | 144.5s | −2.5 s | both correct, near-tie |
+| Brainiac_Maniac.mp3 | 64.0s | 32.0s | −32 s | v2.2 falls back to `other` stem (instrumental); finds the synth climax |
+| war_drums.m4a | 5.5s | 1.0s | −4.5 s | percussive loop; both within the loop body |
+
+The three vocal pop tracks all moved in the same direction: **later in
+the song**, where the *climactic* chorus (often double-tracked, with
+backing harmonies, post-bridge) lives. v2.1 was picking the *first*
+chorus; v2.2 picks the *biggest* one.
+
+### Three-environment validation (deterministic outputs)
+
+The same code path was validated on three environments. Outputs are
+identical across MPS and CUDA (sub-second drift on `war_drums` due to
+floating-point order-of-operations). CPU produces the same picks but
+takes 10× longer:
+
+| Environment | Speed | Notes |
+|---|---|---|
+| MacBook M5 Max (MPS)  | 4–7 s/song | recommended on Mac |
+| AWS L40S host (CUDA)  | 8–12 s/song | dominated by CUDA init + PCIe |
+| AWS L40S host (CPU)   | 22–53 s/song | always works, ~10× slower than MPS |

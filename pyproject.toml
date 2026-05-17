@@ -1,9 +1,9 @@
 [project]
 name = "ringtone-forge"
-version = "2.1.0"
+version = "2.2.0"
 description = "Intelligent 30-second ringtone forge with chorus detection and genre-adaptive volume envelopes."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13"
 license = { text = "MIT" }
 authors = [
     { name = "Neo 孫", email = "neosun100@users.noreply.github.com" },
@@ -24,6 +24,18 @@ dependencies = [
     "soundfile>=0.12.1",
 ]
 
+[project.optional-dependencies]
+# Deep-learning chorus detection via mir-aidj/all-in-one (WASPAA 2023 SOTA).
+# Adds ~1 GB of dependencies. Install with:  uv sync --extra deep
+# On Apple Silicon, PyTorch's "cpu" wheel includes the MPS (Metal GPU) backend —
+# the wheel name is misleading but it is the right choice for macOS.
+deep = [
+    "torch>=2.4,<2.5",
+    "torchaudio>=2.4,<2.5",
+    "demucs>=4.0",
+    "madmom @ git+https://github.com/CPJKU/madmom",
+]
+
 [project.scripts]
 ringtone-forge = "ringtone_forge.cli:main"
 
@@ -38,3 +50,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ringtone_forge"]
+
+[tool.hatch.metadata]
+# Required because the [deep] extra includes a git+https reference (madmom).
+allow-direct-references = true
+
+[tool.uv.extra-build-dependencies]
+# NATTEN 0.17 builds C++ extensions that need torch at build time.
+# uv's default build isolation hides torch — this tells uv to inject it.

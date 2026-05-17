@@ -119,9 +119,14 @@ examples:
     parser.add_argument("input", help="path to source audio (mp3, m4a, wav, flac, ogg)")
     parser.add_argument("output", nargs="?", default=None,
                         help="output path (default: <input>_ringtone.m4a)")
-    parser.add_argument("--algo", choices=["loudness", "features", "structural"],
-                        default="features",
-                        help="window-selection algorithm (default: features)")
+    parser.add_argument("--algo", choices=["loudness", "features", "structural", "stems", "auto"],
+                        default="auto",
+                        help="window-selection algorithm. 'auto' picks 'stems' if [deep] extras "
+                             "are installed, otherwise 'features'. 'stems' uses demucs source "
+                             "separation + vocal-aware chorus detection (most accurate).")
+    parser.add_argument("--device", choices=["auto", "mps", "cuda", "cpu"], default="auto",
+                        help="hardware backend for the deep model (only used by --algo stems). "
+                             "'auto' picks MPS on Apple Silicon, then CUDA, then CPU.")
     parser.add_argument("--preset", choices=["vocal", "melodic", "percussive", "auto"],
                         default="auto",
                         help="envelope preset (default: auto = pick from classifier)")
@@ -129,6 +134,9 @@ examples:
                         help="manually specify start time in seconds (overrides analysis)")
     parser.add_argument("--no-beat-align", action="store_true",
                         help="do not snap start to nearest beat")
+    parser.add_argument("--no-chorus-align", action="store_true",
+                        help="do not align chorus center to envelope sustain center "
+                             "(only relevant when --algo stems is active)")
     parser.add_argument("--no-envelope", action="store_true",
                         help="skip envelope, output raw 30s trim")
     parser.add_argument("--no-verify", action="store_true",
@@ -184,25 +192,99 @@ examples:
         if not args.quiet:
             print(f"  start: {_bold(f'{start_seconds:.1f}s')} (manual)")
         candidates_for_report: list = []
+        chorus_segment: tuple[float, float] | None = None
     else:
-        from ringtone_forge.analyzer import analyze
-        candidates = analyze(y, sr,
-                             algorithm=args.algo,
-                             audio_type=cls.audio_type,
-                             window_seconds=30.0,
-                             top_k=args.top_k)
-        candidates_for_report = candidates
-        if not candidates:
-            sys.exit("ringtone-forge: analyzer produced no candidates")
-        start_seconds = candidates[0].start_seconds
-        if not args.quiet:
-            print(f"  algorithm: {args.algo}  → top start = {_bold(f'{start_seconds:.1f}s')}  "
-                  f"({_format_seconds(start_seconds)})")
-            for rank, c in enumerate(candidates[:args.top_k], 1):
-                marker = "→" if rank == 1 else " "
-                feat_summary = ", ".join(f"{k}={v}" for k, v in c.features.items() if k != "audio_type")
-                print(_dim(f"   {marker} #{rank}: start={c.start_seconds:6.1f}s ({_format_seconds(c.start_seconds)})  "
-                           f"score={c.score:.3f}  {feat_summary}"))
+        # Resolve "auto" algorithm: prefer stems if torch+demucs installed
+        algo = args.algo
+        if algo == "auto":
+            try:
+                import torch  # noqa
+                from demucs.pretrained import get_model  # noqa
+                algo = "stems"
+            except ImportError:
+                algo = "features"
+
+        chorus_segment = None
+        if algo == "stems":
+            # Deep stems-aware analysis
+            if not args.quiet:
+                print(f"  algorithm: {_bold('stems')} (demucs source separation, device={args.device})")
+            try:
+                from ringtone_forge.stems_analyzer import find_chorus_window_stems
+                stem_result = find_chorus_window_stems(
+                    str(src),
+                    device=args.device,
+                    top_k=args.top_k,
+                )
+                start_seconds = stem_result.chorus_start_seconds
+                chorus_segment = (stem_result.chorus_start_seconds, stem_result.chorus_end_seconds)
+                candidates_for_report = []
+                if not args.quiet:
+                    print(f"  primary stem: {stem_result.primary_stem}  "
+                          f"device used: {stem_result.device_used}  "
+                          f"separation: {stem_result.seconds_to_separate:.1f}s")
+                    print(f"  detected chorus: "
+                          f"{_bold(f'{stem_result.chorus_start_seconds:.1f}s')} → "
+                          f"{stem_result.chorus_end_seconds:.1f}s  "
+                          f"({_format_seconds(stem_result.chorus_start_seconds)} → "
+                          f"{_format_seconds(stem_result.chorus_end_seconds)})  "
+                          f"confidence={stem_result.confidence:.2f}")
+                    for rank, (cstart, cscore) in enumerate(stem_result.candidates, 1):
+                        marker = "→" if rank == 1 else " "
+                        print(_dim(f"   {marker} #{rank}: start={cstart:6.1f}s ({_format_seconds(cstart)})  score={cscore:.3f}"))
+            except ImportError as e:
+                if not args.quiet:
+                    print(_yellow(f"  [stems] unavailable ({e}), falling back to features"))
+                algo = "features"
+
+        if algo in ("loudness", "features", "structural"):
+            from ringtone_forge.analyzer import analyze
+            candidates = analyze(y, sr,
+                                 algorithm=algo,
+                                 audio_type=cls.audio_type,
+                                 window_seconds=30.0,
+                                 top_k=args.top_k)
+            candidates_for_report = candidates
+            if not candidates:
+                sys.exit("ringtone-forge: analyzer produced no candidates")
+            start_seconds = candidates[0].start_seconds
+            if not args.quiet:
+                print(f"  algorithm: {algo}  → top start = {_bold(f'{start_seconds:.1f}s')}  "
+                      f"({_format_seconds(start_seconds)})")
+                for rank, c in enumerate(candidates[:args.top_k], 1):
+                    marker = "→" if rank == 1 else " "
+                    feat_summary = ", ".join(f"{k}={v}" for k, v in c.features.items() if k != "audio_type")
+                    print(_dim(f"   {marker} #{rank}: start={c.start_seconds:6.1f}s ({_format_seconds(c.start_seconds)})  "
+                               f"score={c.score:.3f}  {feat_summary}"))
+
+    # --- Pick envelope preset (must happen before chorus-align so we know sustain) -
+    from ringtone_forge.envelope import get_preset, build_filter_expression, render_ascii
+    preset_name = args.preset if args.preset != "auto" else cls.audio_type
+    preset = get_preset(preset_name)
+    if not args.quiet:
+        print(f"  envelope: {_bold(preset.name)}  "
+              f"(rise {preset.rise_seconds:g}s exp + sustain {preset.sustain_seconds:g}s + drop {preset.drop_seconds:g}s)")
+
+    # --- Step 3.5: chorus-aware envelope alignment -----------------------
+    # If the analyzer told us where the chorus is, shift trim_start so that
+    # the chorus midpoint lands on the envelope's sustain midpoint (the
+    # loudest moment of the ringtone).
+    if chorus_segment is not None and not args.no_chorus_align and args.start is None:
+        from ringtone_forge.stems_analyzer import chorus_aware_trim_start
+        aligned_start = chorus_aware_trim_start(
+            chorus_start=chorus_segment[0],
+            chorus_end=chorus_segment[1],
+            preset_rise_seconds=preset.rise_seconds,
+            preset_sustain_seconds=preset.sustain_seconds,
+            source_duration=duration,
+        )
+        if abs(aligned_start - start_seconds) > 0.5 and not args.quiet:
+            print(_dim(
+                f"  chorus-aware align: {start_seconds:.1f}s → {aligned_start:.1f}s "
+                f"(chorus mid {(chorus_segment[0]+chorus_segment[1])/2:.1f}s aligns to "
+                f"envelope sustain mid)"
+            ))
+        start_seconds = aligned_start
 
     # --- Step 4: beat-align ----------------------------------------------
     if not args.no_beat_align and args.start is None:
@@ -217,14 +299,6 @@ examples:
         start_seconds = max(0.0, duration - 30.0)
         if not args.quiet:
             print(_yellow(f"  start clamped to {start_seconds:.2f}s (would have run past EOF)"))
-
-    # --- Pick envelope preset --------------------------------------------
-    from ringtone_forge.envelope import get_preset, build_filter_expression, render_ascii
-    preset_name = args.preset if args.preset != "auto" else cls.audio_type
-    preset = get_preset(preset_name)
-    if not args.quiet:
-        print(f"  envelope: {_bold(preset.name)}  "
-              f"(rise {preset.rise_seconds:g}s exp + sustain {preset.sustain_seconds:g}s + drop {preset.drop_seconds:g}s)")
 
     # --- Step 5: --analyze short-circuits here ---------------------------
     if args.analyze:

@@ -11,7 +11,7 @@ The command-line entry point is ``ringtone_forge.cli.main``, registered as
 the ``ringtone-forge`` console script via ``pyproject.toml``.
 """
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 
 __all__ = [
     "__version__",

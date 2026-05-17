@@ -1,19 +1,21 @@
 # 🔔 ringtone-forge
 
-> An intelligent agent that turns any song into a 30-second ringtone — finds the climax, picks the right envelope, and ships a verified `.m4a`.
+> An intelligent agent that turns any song into a 30-second ringtone — finds the chorus with a neural network, aligns it to the loudest moment of the volume envelope, and ships a verified `.m4a`.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.10--3.12-blue.svg)](https://www.python.org/)
 [![ffmpeg](https://img.shields.io/badge/built%20with-ffmpeg-007808.svg)](https://ffmpeg.org/)
-[![librosa](https://img.shields.io/badge/audio-librosa-c0392b.svg)](https://librosa.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-MPS%20%7C%20CUDA%20%7C%20CPU-ee4c2c.svg)](https://pytorch.org/)
+[![demucs](https://img.shields.io/badge/audio-demucs-c0392b.svg)](https://github.com/facebookresearch/demucs)
 [![uv](https://img.shields.io/badge/managed%20with-uv-7c3aed.svg)](https://github.com/astral-sh/uv)
-[![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)](#)
 
-A ringtone is a 30-second story. Most songs spend 30 seconds warming up
-before they reach the line you actually want to hear. `ringtone-forge`
-listens to the whole song, finds the chorus (or drop, or loop peak),
-trims it, shapes the volume to match the genre, and writes a ringtone
-that just works.
+A ringtone is a 30-second story. Most songs spend the first 30 seconds
+warming up before they reach the line you actually want to hear.
+`ringtone-forge` (v2.2) separates the song into stems with a neural
+network (Demucs, MPS/CUDA-accelerated), finds the **loudest sustained
+vocal section**, aligns the chorus midpoint to the envelope's loudest
+moment, and writes a ringtone that lands the climax exactly when the
+volume peaks.
 
 ```
 $ ringtone-forge song.mp3
@@ -83,35 +85,60 @@ Verification (preset-aware quality bar):
 ```bash
 git clone https://github.com/neosun100/ringtone-forge.git
 cd ringtone-forge
-uv sync                                 # creates .venv and installs deps
+
+# Baseline: librosa heuristics only (no PyTorch, ~50 MB of deps)
+uv sync
+
+# Recommended: add deep stems-aware chorus detection (~1 GB, includes PyTorch + Demucs)
+uv sync --extra deep
 ```
 
 ### Use
 
 ```bash
-# Full agent — analyze, classify, forge, verify (the common case)
+# Full agent — classify, run deep chorus detection, forge, verify (the common case)
 uv run ringtone-forge path/to/song.mp3
 # → path/to/song_ringtone.m4a
 
 # Specify output path
 uv run ringtone-forge song.mp3 my_ringtone.m4a
 
-# Analyze only — show the top-5 candidate windows, no file written
+# Analyze only — show classifier + analyzer + preset decisions, no file written
 uv run ringtone-forge song.mp3 --analyze
+uv run ringtone-forge song.mp3 --analyze --json     # machine-readable
 
-# Pick a different algorithm
-uv run ringtone-forge song.mp3 --algo loudness     # T1: pure loudness max
-uv run ringtone-forge song.mp3 --algo features     # T2: multi-feature (default)
+# Pick a specific algorithm
+uv run ringtone-forge song.mp3 --algo stems        # T4: deep, vocal-aware (default w/ deep extras)
+uv run ringtone-forge song.mp3 --algo features     # T2: multi-feature heuristic
+uv run ringtone-forge song.mp3 --algo loudness     # T1: pure RMS max
 uv run ringtone-forge song.mp3 --algo structural   # T3: SSM chorus detection
+
+# Pick a hardware backend (only matters for --algo stems)
+uv run ringtone-forge song.mp3 --device mps        # Apple Silicon GPU (default on Mac)
+uv run ringtone-forge song.mp3 --device cuda       # NVIDIA GPU
+uv run ringtone-forge song.mp3 --device cpu        # always works, slower
 
 # Override the agent
 uv run ringtone-forge song.mp3 --start 96.0        # I know where the chorus is
 uv run ringtone-forge song.mp3 --preset percussive # force a specific envelope
+uv run ringtone-forge song.mp3 --no-chorus-align   # disable chorus-to-sustain alignment
 uv run ringtone-forge song.mp3 --no-envelope       # raw 30s trim only
-uv run ringtone-forge song.mp3 --no-beat-align     # don't snap to beat
 ```
 
-Add `--json` to any analyze/verify call for machine-readable output.
+### Use as a Kiro / Claude Code skill
+
+A skill manifest at `~/.kiro/skills/ringtone-forge/SKILL.md` lets the LLM
+agent in this project's environment (Kiro CLI / Claude Code) auto-trigger
+on natural language. Try:
+
+```
+帮我把 ~/Downloads/借月.mp3 做成铃声
+make a 30-second ringtone from this song
+截一段 30 秒的高潮
+```
+
+The agent will run `--analyze --json` first, reason about the result,
+then forge and report.
 
 ### Install globally
 
