@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 760" font-family="Inter, -apple-system, system-ui, sans-serif">
+  <defs>
+    <filter id="card-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+  <rect width="1500" height="760" fill="#ffffff"/>
+  <text x="635.0" y="44" text-anchor="middle" font-size="22" font-weight="700" fill="#0f172a">ringtone-forge — Architecture Overview</text>
+  <text x="635.0" y="68" text-anchor="middle" font-size="14" fill="#64748b">Four layers: agent skill → CLI → Python package → hardware-accelerated runtime</text>
+  <rect x="60" y="100" width="1190" height="110" rx="14" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2" filter="url(#card-shadow)"/>
+  <rect x="60" y="100" width="6" height="110" rx="3" fill="#7c3aed"/>
+  <text x="80" y="126" font-size="14" font-weight="700" fill="#7c3aed">Layer 1 · Agent (Skill)</text>
+  <text x="80" y="144" font-size="11" fill="#64748b" font-style="italic">LLM auto-triggers on natural language</text>
+  <rect x="260.0" y="109" width="310.0" height="92" rx="8" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="415.0" y="131" text-anchor="middle" font-size="13" font-weight="700" fill="#7c3aed">Triggers</text>
+  <text x="415.0" y="151" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">做铃声 / 30秒</text>
+  <text x="415.0" y="167" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">ringtone / chorus</text>
+  <text x="415.0" y="183" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">this song → m4a</text>
+  <rect x="590.0" y="109" width="310.0" height="92" rx="8" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="745.0" y="131" text-anchor="middle" font-size="13" font-weight="700" fill="#7c3aed">Workflow</text>
+  <text x="745.0" y="151" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">1. recon (--analyze)</text>
+  <text x="745.0" y="167" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">2. reason → params</text>
+  <text x="745.0" y="183" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">3. forge → report</text>
+  <rect x="920.0" y="109" width="310.0" height="92" rx="8" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="1075.0" y="131" text-anchor="middle" font-size="13" font-weight="700" fill="#7c3aed">Skill file</text>
+  <text x="1075.0" y="151" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">~/.kiro/skills/</text>
+  <text x="1075.0" y="167" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">ringtone-forge/</text>
+  <text x="1075.0" y="183" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">SKILL.md</text>
+  <rect x="60" y="230" width="1190" height="110" rx="14" fill="#dbeafe" stroke="#2563eb" stroke-width="2" filter="url(#card-shadow)"/>
+  <rect x="60" y="230" width="6" height="110" rx="3" fill="#2563eb"/>
+  <text x="80" y="256" font-size="14" font-weight="700" fill="#2563eb">Layer 2 · CLI</text>
+  <text x="80" y="274" font-size="11" fill="#64748b" font-style="italic">command-line interface — entry point for agent + humans</text>
+  <rect x="260.0" y="239" width="227.5" height="92" rx="8" fill="#ffffff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="373.75" y="261" text-anchor="middle" font-size="13" font-weight="700" fill="#2563eb">Main commands</text>
+  <text x="373.75" y="281" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">ringtone-forge x.mp3</text>
+  <text x="373.75" y="297" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">--analyze --json</text>
+  <text x="373.75" y="313" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">--doctor</text>
+  <rect x="507.5" y="239" width="227.5" height="92" rx="8" fill="#ffffff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="621.25" y="261" text-anchor="middle" font-size="13" font-weight="700" fill="#2563eb">Algo selection</text>
+  <text x="621.25" y="281" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">--algo {stems,</text>
+  <text x="621.25" y="297" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">  features, structural,</text>
+  <text x="621.25" y="313" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">  loudness, auto}</text>
+  <rect x="755.0" y="239" width="227.5" height="92" rx="8" fill="#ffffff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="868.75" y="261" text-anchor="middle" font-size="13" font-weight="700" fill="#2563eb">Device</text>
+  <text x="868.75" y="281" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">--device {auto,</text>
+  <text x="868.75" y="297" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">  mps, cuda, cpu}</text>
+  <rect x="1002.5" y="239" width="227.5" height="92" rx="8" fill="#ffffff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="1116.25" y="261" text-anchor="middle" font-size="13" font-weight="700" fill="#2563eb">Overrides</text>
+  <text x="1116.25" y="281" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">--start --preset</text>
+  <text x="1116.25" y="297" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">--no-envelope</text>
+  <text x="1116.25" y="313" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">--no-chorus-align</text>
+  <rect x="60" y="360" width="1190" height="200" rx="14" fill="#d1fae5" stroke="#059669" stroke-width="2" filter="url(#card-shadow)"/>
+  <rect x="60" y="360" width="6" height="200" rx="3" fill="#059669"/>
+  <text x="80" y="386" font-size="14" font-weight="700" fill="#059669">Layer 3 · ringtone_forge package</text>
+  <text x="80" y="404" font-size="11" fill="#64748b" font-style="italic">five modules, single responsibility each</text>
+  <rect x="260.0" y="369" width="178.0" height="182" rx="8" fill="#ffffff" stroke="#059669" stroke-width="1.5"/>
+  <text x="349.0" y="391" text-anchor="middle" font-size="13" font-weight="700" fill="#059669">classifier.py</text>
+  <text x="349.0" y="411" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">MFCC + chroma</text>
+  <text x="349.0" y="427" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">+ onset + ZCR</text>
+  <text x="349.0" y="443" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">→ vocal/melodic/</text>
+  <text x="349.0" y="459" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">  percussive</text>
+  <rect x="458.0" y="369" width="178.0" height="182" rx="8" fill="#ffffff" stroke="#059669" stroke-width="1.5"/>
+  <text x="547.0" y="391" text-anchor="middle" font-size="13" font-weight="700" fill="#059669">analyzer.py</text>
+  <text x="547.0" y="411" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">T1 loudness</text>
+  <text x="547.0" y="427" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">T2 features</text>
+  <text x="547.0" y="443" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">T3 structural</text>
+  <text x="547.0" y="459" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">(librosa-based)</text>
+  <rect x="656.0" y="369" width="178.0" height="182" rx="8" fill="#ffffff" stroke="#059669" stroke-width="1.5"/>
+  <text x="745.0" y="391" text-anchor="middle" font-size="13" font-weight="700" fill="#059669">stems_analyzer.py</text>
+  <text x="745.0" y="411" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">demucs source</text>
+  <text x="745.0" y="427" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">separation</text>
+  <text x="745.0" y="443" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">+ vocal-aware</text>
+  <text x="745.0" y="459" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">+ chorus-align</text>
+  <rect x="854.0" y="369" width="178.0" height="182" rx="8" fill="#ffffff" stroke="#059669" stroke-width="1.5"/>
+  <text x="943.0" y="391" text-anchor="middle" font-size="13" font-weight="700" fill="#059669">envelope.py</text>
+  <text x="943.0" y="411" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">3 presets</text>
+  <text x="943.0" y="427" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">(genre-aware)</text>
+  <text x="943.0" y="443" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">ffmpeg filter</text>
+  <text x="943.0" y="459" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">expression</text>
+  <rect x="1052.0" y="369" width="178.0" height="182" rx="8" fill="#ffffff" stroke="#059669" stroke-width="1.5"/>
+  <text x="1141.0" y="391" text-anchor="middle" font-size="13" font-weight="700" fill="#059669">verify.py</text>
+  <text x="1141.0" y="411" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">7-point</text>
+  <text x="1141.0" y="427" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">preset-aware</text>
+  <text x="1141.0" y="443" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">quality bar</text>
+  <rect x="60" y="580" width="1190" height="110" rx="14" fill="#ffedd5" stroke="#ea580c" stroke-width="2" filter="url(#card-shadow)"/>
+  <rect x="60" y="580" width="6" height="110" rx="3" fill="#ea580c"/>
+  <text x="80" y="606" font-size="14" font-weight="700" fill="#ea580c">Layer 4 · Runtime</text>
+  <text x="80" y="624" font-size="11" fill="#64748b" font-style="italic">PyTorch with hardware acceleration (auto-detected)</text>
+  <rect x="260.0" y="589" width="310.0" height="92" rx="8" fill="#ffffff" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="415.0" y="611" text-anchor="middle" font-size="13" font-weight="700" fill="#ea580c">MPS  (Apple Silicon)</text>
+  <text x="415.0" y="631" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">MacBook Pro M5 Max</text>
+  <text x="415.0" y="647" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">Metal Performance Shaders</text>
+  <text x="415.0" y="663" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">~3-7 s / song</text>
+  <rect x="590.0" y="589" width="310.0" height="92" rx="8" fill="#ffffff" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="745.0" y="611" text-anchor="middle" font-size="13" font-weight="700" fill="#ea580c">CUDA (NVIDIA)</text>
+  <text x="745.0" y="631" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">L40S validated</text>
+  <text x="745.0" y="647" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">CUDA 12.x</text>
+  <text x="745.0" y="663" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">~8-12 s / song</text>
+  <rect x="920.0" y="589" width="310.0" height="92" rx="8" fill="#ffffff" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="1075.0" y="611" text-anchor="middle" font-size="13" font-weight="700" fill="#ea580c">CPU  (always)</text>
+  <text x="1075.0" y="631" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">x86_64 / arm64</text>
+  <text x="1075.0" y="647" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">graceful fallback</text>
+  <text x="1075.0" y="663" text-anchor="middle" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#334155">~30-50 s / song</text>
+  <rect x="1270" y="100" width="170" height="590" rx="14" fill="#fafafa" stroke="#16a34a" stroke-width="2.5" stroke-dasharray="6,4" filter="url(#card-shadow)"/>
+  <text x="1355.0" y="128" text-anchor="middle" font-size="14" font-weight="700" fill="#15803d">Test Harness</text>
+  <text x="1355.0" y="146" text-anchor="middle" font-size="11" fill="#64748b">93 tests</text>
+  <rect x="1284" y="180" width="142" height="50" rx="8" fill="#ffffff" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="1355.0" y="202" text-anchor="middle" font-size="12" font-weight="700" fill="#16a34a">73 unit</text>
+  <text x="1355.0" y="218" text-anchor="middle" font-size="10" fill="#64748b">all green ✓</text>
+  <rect x="1284" y="244" width="142" height="50" rx="8" fill="#ffffff" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="1355.0" y="266" text-anchor="middle" font-size="12" font-weight="700" fill="#0ea5e9">8 integration</text>
+  <text x="1355.0" y="282" text-anchor="middle" font-size="10" fill="#64748b">all green ✓</text>
+  <rect x="1284" y="308" width="142" height="50" rx="8" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="1355.0" y="330" text-anchor="middle" font-size="12" font-weight="700" fill="#7c3aed">10 regression</text>
+  <text x="1355.0" y="346" text-anchor="middle" font-size="10" fill="#64748b">all green ✓</text>
+  <rect x="1284" y="372" width="142" height="50" rx="8" fill="#ffffff" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="1355.0" y="394" text-anchor="middle" font-size="12" font-weight="700" fill="#ea580c">2 e2e</text>
+  <text x="1355.0" y="410" text-anchor="middle" font-size="10" fill="#64748b">all green ✓</text>
+  <text x="1355.0" y="460" text-anchor="middle" font-size="11" font-weight="600" fill="#15803d">3 environments</text>
+  <text x="1355.0" y="480" text-anchor="middle" font-size="10" fill="#64748b">MPS · CUDA · CPU</text>
+  <text x="1355.0" y="500" text-anchor="middle" font-size="11" font-weight="600" fill="#15803d">10/10 regression</text>
+  <text x="1355.0" y="520" text-anchor="middle" font-size="10" fill="#64748b">picks identical</text>
+  <rect x="1284" y="550" width="142" height="50" rx="8" fill="#fef3c7" stroke="#ca8a04" stroke-width="1.5"/>
+  <text x="1355.0" y="572" text-anchor="middle" font-size="12" font-weight="700" fill="#854d0e">--doctor</text>
+  <text x="1355.0" y="588" text-anchor="middle" font-size="10" fill="#92400e">env self-check</text>
+  <text x="750.0" y="730" text-anchor="middle" font-size="12" fill="#64748b" font-style="italic">All deps managed by uv · MIT licensed · github.com/neosun100/ringtone-forge</text>
+</svg>
