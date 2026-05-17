@@ -40,3 +40,6 @@ dist/
 # Note: samples/**/*.m4a are intentionally tracked — they are the showcase.
 # Note: docs/*.svg and docs/*.png are intentionally tracked — they are documentation.
 # Note: uv.lock SHOULD be committed for reproducible installs.
+
+# 公众号草稿（仅本地，不公开）
+/blog/
