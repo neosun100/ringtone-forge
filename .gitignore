@@ -12,6 +12,18 @@
 *~
 .kiro/
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.pytest_cache/
+
+# uv-managed venv
+.venv/
+.venv-*/
+
 # Build / temp output
 *.tmp
 *.bak
@@ -19,6 +31,7 @@
 tmp/
 build/
 dist/
+/tmp/
 
 # Misc
 .env
@@ -26,3 +39,4 @@ dist/
 
 # Note: samples/**/*.m4a are intentionally tracked — they are the showcase.
 # Note: docs/*.svg and docs/*.png are intentionally tracked — they are documentation.
+# Note: uv.lock SHOULD be committed for reproducible installs.

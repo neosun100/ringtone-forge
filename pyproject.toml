@@ -1,0 +1,40 @@
+[project]
+name = "ringtone-forge"
+version = "2.1.0"
+description = "Intelligent 30-second ringtone forge with chorus detection and genre-adaptive volume envelopes."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Neo 孫", email = "neosun100@users.noreply.github.com" },
+]
+keywords = ["ringtone", "audio", "chorus-detection", "ffmpeg", "librosa"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Multimedia :: Sound/Audio :: Analysis",
+    "Topic :: Multimedia :: Sound/Audio :: Editors",
+]
+dependencies = [
+    "librosa>=0.10.2",
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "soundfile>=0.12.1",
+]
+
+[project.scripts]
+ringtone-forge = "ringtone_forge.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/neosun100/ringtone-forge"
+Repository = "https://github.com/neosun100/ringtone-forge"
+Issues = "https://github.com/neosun100/ringtone-forge/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ringtone_forge"]

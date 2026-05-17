@@ -1,104 +1,149 @@
 # 🔔 ringtone-forge
 
-> A reproducible recipe for crafting **30-second mobile ringtones** from any source audio — codified from real iteration scars.
+> An intelligent agent that turns any song into a 30-second ringtone — finds the climax, picks the right envelope, and ships a verified `.m4a`.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![ffmpeg](https://img.shields.io/badge/built%20with-ffmpeg-007808.svg)](https://ffmpeg.org/)
+[![librosa](https://img.shields.io/badge/audio-librosa-c0392b.svg)](https://librosa.org/)
+[![uv](https://img.shields.io/badge/managed%20with-uv-7c3aed.svg)](https://github.com/astral-sh/uv)
 [![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)](#)
 
-A ringtone is not just a clip. It's a **20s exponential rise → 7s peak → 3s sharp drop** miniature drama, designed for the human ear's logarithmic loudness perception. This repo encodes that recipe as a reusable script and the reasoning behind every parameter.
+A ringtone is a 30-second story. Most songs spend 30 seconds warming up
+before they reach the line you actually want to hear. `ringtone-forge`
+listens to the whole song, finds the chorus (or drop, or loop peak),
+trims it, shapes the volume to match the genre, and writes a ringtone
+that just works.
+
+```
+$ ringtone-forge song.mp3
+→ Forging song.mp3
+  loaded: 222.4s (3:42) at 22050 Hz
+  classifier: vocal  confidence=0.97  (mfcc_var=15.2 chroma_std=0.291)
+  algorithm: features  → top start = 98.5s  (1:38)
+  beat-aligned: 98.50s → 98.47s
+  envelope: vocal  (rise 5s exp + sustain 22s + drop 3s)
+✓ wrote song_ringtone.m4a (480 KB)
+
+Verification (preset-aware quality bar):
+  ✓ duration = 30.000s
+  ✓ true peak ≤ +1.0 dBFS  (inter-sample safe)
+  ✓ RMS at t=29.7s < −40 dB  (clean exit)
+  ✓ start ≈ -6.0 dB below climax  (preset adherence)
+  ✓ RMS at t=15s within 6 dB of climax
+  ✓ sustain anchor louder than start
+  ✓ output LUFS within 4 dB of source
+✓ all checks passed.
+```
 
 ---
 
-## TL;DR — The Formula
+## TL;DR — The Agent
 
 ```
-┌─────────────────── 30 seconds total ───────────────────┐
-│                                                          │
-│   0s ──── 20s ──────────── 27s ──── 30s                 │
-│   │       │                │        │                   │
-│   │ rise  │   sustain      │ drop   │                   │
-│   │ 20s   │   7s           │ 3s     │                   │
-│   │       │                │        │                   │
-│   20% ─exp→ 100% ──────── 100% ─lin→ 0%                 │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
+   any audio   →   classify   →   analyze   →   beat-align   →   trim   →   envelope   →   limit   →   verify
+  (mp3/m4a/    │  (vocal /   │  (T1/T2/T3)  │  (snap to    │  (30s   │  (3 presets,  │  (anti-   │  (7 checks)
+   wav/flac)   │   melodic / │              │   nearest    │   crop) │   genre-      │   clip)   │
+              │   percussive)│              │   beat)      │         │   adaptive)   │           │
 ```
 
-| Stage | Time | Volume | Curve | Why |
-|---|---|---|---|---|
-| **Rise** | `0s → 20s` | `20% → 100%` | **Exponential** (`v = 0.2 · 5^(t/20)`) | dB-linear ≈ ear-linear; "approaching from afar" |
-| **Sustain** | `20s → 27s` | `100%` | flat | climax breathing room (≥5s) |
-| **Drop** | `27s → 30s` | `100% → 0%` | **Linear** (`v = 1 − (t−27)/3`) | front-loaded fast decay = "sharp but smooth" |
-
-Single `ffmpeg` invocation:
-
-```bash
-ffmpeg -i input.m4a -t 30 \
-  -af "volume='if(lt(t,20), 0.2*pow(5,t/20), if(lt(t,27), 1, max(0, 1-(t-27)/3)))':eval=frame" \
-  -c:a aac -b:a 128k output_ringtone.m4a
-```
+| Step | What it does | How |
+|---|---|---|
+| Classify | Vocal pop / instrumental / drum loop? | MFCC variance + chroma std + onset rate + ZCR |
+| Analyze | Which 30 seconds are the climax? | Sliding window, ranked by RMS / multi-feature / chorus repetition |
+| Beat-align | Snap start to the bar | librosa.beat.beat_track |
+| Trim | Cut exactly 30.000 seconds | ffmpeg `-ss … -t 30` |
+| Envelope | Volume shape matched to genre | exponential rise → flat sustain → linear drop |
+| Limit | Anti-clipping for hot sources | ffmpeg `alimiter limit=0.78` |
+| Verify | Did we ship something correct? | preset-aware 7-point quality bar |
 
 ---
 
 ## Visualizations
 
-### Volume envelope across 30 seconds
-![Volume Curve](docs/volume-curve.png)
-
 ### End-to-end pipeline
 ![Pipeline](docs/pipeline.png)
+
+### Genre-adaptive volume envelopes
+![Volume Curves](docs/volume-curve.png)
+
+### Intelligent analysis
+![Analysis](docs/analysis.png)
 
 ---
 
 ## Quick Start
 
 ### Prerequisites
-- `ffmpeg` (with `aac` encoder — default on macOS via `brew install ffmpeg`)
+- `ffmpeg` (`brew install ffmpeg` or `apt install ffmpeg`)
+- `uv` (`brew install uv` or `pipx install uv`)
 
-### One-liner
+### Install
+
 ```bash
-./scripts/make-ringtone.sh path/to/your_audio.m4a
-# → produces: your_audio_ringtone.m4a (30s)
+git clone https://github.com/neosun100/ringtone-forge.git
+cd ringtone-forge
+uv sync                                 # creates .venv and installs deps
 ```
 
-Specify output path:
+### Use
+
 ```bash
-./scripts/make-ringtone.sh input.m4a output.m4a
+# Full agent — analyze, classify, forge, verify (the common case)
+uv run ringtone-forge path/to/song.mp3
+# → path/to/song_ringtone.m4a
+
+# Specify output path
+uv run ringtone-forge song.mp3 my_ringtone.m4a
+
+# Analyze only — show the top-5 candidate windows, no file written
+uv run ringtone-forge song.mp3 --analyze
+
+# Pick a different algorithm
+uv run ringtone-forge song.mp3 --algo loudness     # T1: pure loudness max
+uv run ringtone-forge song.mp3 --algo features     # T2: multi-feature (default)
+uv run ringtone-forge song.mp3 --algo structural   # T3: SSM chorus detection
+
+# Override the agent
+uv run ringtone-forge song.mp3 --start 96.0        # I know where the chorus is
+uv run ringtone-forge song.mp3 --preset percussive # force a specific envelope
+uv run ringtone-forge song.mp3 --no-envelope       # raw 30s trim only
+uv run ringtone-forge song.mp3 --no-beat-align     # don't snap to beat
 ```
 
-### Verify the output
+Add `--json` to any analyze/verify call for machine-readable output.
+
+### Install globally
+
 ```bash
-./scripts/verify-ringtone.sh output_ringtone.m4a
-# Prints: duration, RMS at key timestamps, true peak, integrated loudness
+uv tool install .
+ringtone-forge any/song.mp3
 ```
 
 ---
 
-## Showcase: `war_drums.m4a` → `war_drums_ringtone.m4a`
+## Showcase: 5 real songs, 5 successes
 
-Source: a 39.9-second war drum loop. The forge crops the most evocative 30s and applies the envelope.
+| Source                          | Class       | Algo picked    | Preset       | Verify |
+|---------------------------------|-------------|----------------|--------------|--------|
+| [借月.mp3](samples/source/借月.mp3) (4:36)            | vocal       | 122.5s (verse 2 → chorus) | vocal        | 7/7 ✓  |
+| [离开我的依赖.mp3](samples/source/离开我的依赖.mp3) (4:08)  | vocal       | 175.0s (last chorus)      | vocal        | 7/7 ✓  |
+| [跳楼机.mp3](samples/source/跳楼机.mp3) (3:22)        | vocal       | 147.0s (chorus)           | vocal        | 7/7 ✓  |
+| [Brainiac_Maniac.mp3](samples/source/Brainiac_Maniac.mp3) (1:43) | melodic   | 64.0s (synth climax)     | melodic      | 7/7 ✓  |
+| [war_drums.m4a](samples/source/war_drums.m4a) (0:40) | percussive  | 5.5s (loop peak)         | percussive   | 7/7 ✓  |
 
-| File | Duration | Description |
-|---|---|---|
-| [`samples/source/war_drums.m4a`](samples/source/war_drums.m4a) | 39.92s | original |
-| [`samples/final/war_drums_ringtone.m4a`](samples/final/war_drums_ringtone.m4a) | 30.00s | **final ringtone** |
-
-The four numbered files in [`samples/iterations/`](samples/iterations/) trace the actual design journey from "naive trim" to "exponential three-stage" — each step driven by listening, measuring, and revising. See [`CHANGELOG.md`](CHANGELOG.md) for the narrative.
+Listen to the forged ringtones in [`samples/final/`](samples/final/).
 
 ---
 
-## Why this exists
+## Why each piece exists
 
-Most "fade-in/fade-out" tutorials hand you a one-line filter and walk away. This repo answers the **why** behind each parameter:
-
-- Why 30 seconds (not 25, not 45)?
-- Why exponential rise but linear drop?
-- Why 20% start (not 0%, not 50%)?
-- Why 7s sustain (not 5s, not 12s)?
-- How do you measure that the result actually matches the design?
-
-All answered in [**METHODOLOGY.md**](METHODOLOGY.md).
+- [METHODOLOGY.md](METHODOLOGY.md) — why 30 seconds, why three stages, why
+  exponential rise, why linear drop. The original v1 design rationale.
+- [ANALYSIS.md](ANALYSIS.md) — how the v2 agent picks the chorus, what the
+  classifier looks for, how the three ranking algorithms differ, when to
+  override.
+- [CHANGELOG.md](CHANGELOG.md) — what changed when, with reasoning.
 
 ---
 
@@ -106,22 +151,34 @@ All answered in [**METHODOLOGY.md**](METHODOLOGY.md).
 
 ```
 ringtone-forge/
-├── README.md              ← you are here
-├── METHODOLOGY.md         ← design theory & parameter rationale
-├── CHANGELOG.md           ← iteration history (v0 → v1.0)
-├── LICENSE                ← MIT
-├── scripts/
-│   ├── make-ringtone.sh   ← one-shot 30s ringtone forge
-│   └── verify-ringtone.sh ← measure RMS / LUFS / true peak
+├── README.md                  ← you are here
+├── METHODOLOGY.md             ← v1 design theory: envelope shape
+├── ANALYSIS.md                ← v2 design theory: classifier + analyzer
+├── CHANGELOG.md               ← every version, every why
+├── LICENSE                    ← MIT
+├── pyproject.toml             ← uv-managed Python project
+│
+├── ringtone_forge/            ← the Python package
+│   ├── __init__.py
+│   ├── cli.py                 ← argparse entry point (the "agent")
+│   ├── classifier.py          ← vocal / melodic / percussive detector
+│   ├── analyzer.py            ← T1 / T2 / T3 window ranking + beat alignment
+│   ├── envelope.py            ← three genre-adaptive presets
+│   └── verify.py              ← preset-aware quality bar
+│
+├── scripts/                   ← legacy fast-paths (no Python required)
+│   ├── make-ringtone.sh       ← v1 percussive-only forge (still works)
+│   └── verify-ringtone.sh     ← v1 verify (absolute thresholds)
+│
 ├── samples/
-│   ├── source/            ← raw source audio
-│   ├── iterations/        ← every revision in order
-│   └── final/             ← the deliverable
+│   ├── source/                ← 5 source files used in the showcase
+│   ├── iterations/            ← v1.0 design-journey snapshots
+│   └── final/                 ← 5 forged ringtones
+│
 └── docs/
-    ├── volume-curve.svg   ← envelope visualization (vector)
-    ├── volume-curve.png   ← envelope visualization (raster)
-    ├── pipeline.svg       ← end-to-end flow (vector)
-    └── pipeline.png       ← end-to-end flow (raster)
+    ├── volume-curve.{svg,png} ← envelope visualisation
+    ├── pipeline.{svg,png}     ← end-to-end forge pipeline
+    └── analysis.{svg,png}     ← classifier + analyzer flow
 ```
 
 ---
@@ -132,4 +189,5 @@ MIT — see [LICENSE](LICENSE). Use it, fork it, ship better ringtones.
 
 ---
 
-> *"A ringtone is a 30-second story. It must approach, arrive, and leave — without overstaying its welcome."*
+> *"A ringtone is a 30-second story. The story is in the song; the agent
+> just finds where it begins."*

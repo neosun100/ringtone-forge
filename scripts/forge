@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# forge — convenience wrapper around `uv run ringtone-forge`.
+#
+# All arguments are forwarded to the Python CLI. From the project root:
+#
+#     ./scripts/forge song.mp3
+#     ./scripts/forge song.mp3 --algo structural
+#     ./scripts/forge song.mp3 --analyze
+#
+# This script exists only so users do not need to type `uv run` every time.
+# For one-off invocations from anywhere on the system, prefer:
+#
+#     uv tool install /path/to/ringtone-forge
+#     ringtone-forge song.mp3
+#
+# which installs the CLI globally.
+
+set -euo pipefail
+
+# Locate the project root regardless of where the script is called from.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd)"
+
+if ! command -v uv >/dev/null 2>&1; then
+    echo "forge: uv not found. Install with:  brew install uv" >&2
+    exit 69
+fi
+
+cd "$PROJECT_ROOT"
+exec uv run ringtone-forge "$@"

@@ -1,8 +1,25 @@
 #!/usr/bin/env bash
-# make-ringtone.sh — forge a 30-second ringtone from any audio source.
+# make-ringtone.sh — fast-path forge for the v1 percussive recipe.
 #
-# Usage:
-#   make-ringtone.sh <input> [<output>]
+# Status: kept for known-start, no-Python scenarios.
+#         For any source where the chorus is *not* in the first 30 seconds,
+#         or where the audio type is vocal/melodic, use the v2 agent:
+#
+#             uv run ringtone-forge <input>
+#
+#         The agent picks the best 30-second window, classifies the audio
+#         type, and applies the matching genre-adaptive envelope. See
+#         README.md for full v2 capabilities.
+#
+# This script always:
+#   - takes the *first* 30 seconds of the source
+#   - applies the v1 percussive envelope (20s exp + 7s sustain + 3s drop)
+#   - is purely shell + ffmpeg (no librosa, no Python)
+#
+# Use cases where this is still the right tool:
+#   - drum loops / percussive loops where the climax is uniform
+#   - you already know the start time and just want a fast trim+envelope
+#   - automation environments where Python is not available
 #
 # Recipe (see ../METHODOLOGY.md for the reasoning):
 #   0–20s : v(t) = 0.2 · 5^(t/20)        (exponential rise, dB-linear)
