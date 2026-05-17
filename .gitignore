@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.kiro/
+
+# Build / temp output
+*.tmp
+*.bak
+*.log
+tmp/
+build/
+dist/
+
+# Misc
+.env
+.envrc
+
+# Note: samples/**/*.m4a are intentionally tracked — they are the showcase.
+# Note: docs/*.svg and docs/*.png are intentionally tracked — they are documentation.

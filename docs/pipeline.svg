@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" font-family="Inter, -apple-system, system-ui, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <filter id="card-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="700" fill="#ffffff"/>
+  <text x="600.0" y="48" text-anchor="middle" font-size="22" font-weight="700" fill="#0f172a">End-to-End Forge Pipeline</text>
+  <text x="600.0" y="74" text-anchor="middle" font-size="14" fill="#64748b">From source audio to verified 30-second ringtone</text>
+  <rect x="40.0" y="130" width="200" height="230" rx="14" fill="#eef2ff" stroke="#6366f1" stroke-width="2" filter="url(#card-shadow)"/>
+  <rect x="40.0" y="130" width="200" height="6" rx="14" fill="#6366f1"/>
+  <g><rect x="118.0" y="178" width="44" height="28" rx="3" fill="none" stroke="#6366f1" stroke-width="2.5"/><path d="M 118.0 178 L 118.0 172 L 134.0 172 L 138.0 178 Z" fill="none" stroke="#6366f1" stroke-width="2.5" stroke-linejoin="round"/><path d="M 126.0 195 L 130.0 188 L 134.0 198 L 138.0 186 L 142.0 196 L 146.0 189 L 150.0 194 L 154.0 192" fill="none" stroke="#6366f1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="140.0" y="240" text-anchor="middle" font-size="16" font-weight="700" fill="#6366f1">1 · Source</text>
+  <text x="140.0" y="260" text-anchor="middle" font-size="11" fill="#64748b" font-style="italic">raw audio in</text>
+  <text x="140.0" y="288" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">war_drums.m4a</text>
+  <text x="140.0" y="308" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">39.92s · AAC 128k</text>
+  <text x="140.0" y="328" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">stereo · 44.1 kHz</text>
+  <rect x="270.0" y="130" width="200" height="230" rx="14" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="2" filter="url(#card-shadow)"/>
+  <rect x="270.0" y="130" width="200" height="6" rx="14" fill="#0ea5e9"/>
+  <g><circle cx="360.0" cy="200" r="6" fill="none" stroke="#0ea5e9" stroke-width="2.5"/><circle cx="380.0" cy="200" r="6" fill="none" stroke="#0ea5e9" stroke-width="2.5"/><line x1="363.0" y1="197" x2="382.0" y2="175" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><line x1="377.0" y1="197" x2="358.0" y2="175" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round"/><circle cx="370.0" cy="189" r="2" fill="#0ea5e9"/></g>
+  <text x="370.0" y="240" text-anchor="middle" font-size="16" font-weight="700" fill="#0ea5e9">2 · Trim 30s</text>
+  <text x="370.0" y="260" text-anchor="middle" font-size="11" fill="#64748b" font-style="italic">lossless crop</text>
+  <text x="370.0" y="288" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">ffmpeg -t 30</text>
+  <text x="370.0" y="308" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">-c copy</text>
+  <text x="370.0" y="328" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">no re-encode</text>
+  <rect x="500.0" y="130" width="200" height="230" rx="14" fill="#dbeafe" stroke="#2563eb" stroke-width="2" filter="url(#card-shadow)"/>
+  <rect x="500.0" y="130" width="200" height="6" rx="14" fill="#2563eb"/>
+  <g><path d="M 578.0 204 Q 590.0 202 596.0 176" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M 596.0 176 L 610.0 176" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M 610.0 176 L 618.0 204" stroke="#2563eb" stroke-width="2.5" fill="none" stroke-linecap="round"/><line x1="576.0" y1="206" x2="624.0" y2="206" stroke="#2563eb" stroke-width="1.2" opacity="0.4"/></g>
+  <text x="600.0" y="240" text-anchor="middle" font-size="16" font-weight="700" fill="#2563eb">3 · Apply Envelope</text>
+  <text x="600.0" y="260" text-anchor="middle" font-size="11" fill="#64748b" font-style="italic">the recipe</text>
+  <text x="600.0" y="288" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">rise 20s exp →</text>
+  <text x="600.0" y="308" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">sustain 7s flat →</text>
+  <text x="600.0" y="328" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">drop 3s linear</text>
+  <rect x="730.0" y="130" width="200" height="230" rx="14" fill="#d1fae5" stroke="#059669" stroke-width="2" filter="url(#card-shadow)"/>
+  <rect x="730.0" y="130" width="200" height="6" rx="14" fill="#059669"/>
+  <g><circle cx="830.0" cy="190" r="14" fill="none" stroke="#059669" stroke-width="2.5"/><circle cx="830.0" cy="190" r="5" fill="#059669"/><line x1="846.0" y1="190.0" x2="852.0" y2="190.0" stroke="#059669" stroke-width="3" stroke-linecap="round"/><line x1="841.3" y1="201.3" x2="845.6" y2="205.6" stroke="#059669" stroke-width="3" stroke-linecap="round"/><line x1="830.0" y1="206.0" x2="830.0" y2="212.0" stroke="#059669" stroke-width="3" stroke-linecap="round"/><line x1="818.7" y1="201.3" x2="814.4" y2="205.6" stroke="#059669" stroke-width="3" stroke-linecap="round"/><line x1="814.0" y1="190.0" x2="808.0" y2="190.0" stroke="#059669" stroke-width="3" stroke-linecap="round"/><line x1="818.7" y1="178.7" x2="814.4" y2="174.4" stroke="#059669" stroke-width="3" stroke-linecap="round"/><line x1="830.0" y1="174.0" x2="830.0" y2="168.0" stroke="#059669" stroke-width="3" stroke-linecap="round"/><line x1="841.3" y1="178.7" x2="845.6" y2="174.4" stroke="#059669" stroke-width="3" stroke-linecap="round"/></g>
+  <text x="830.0" y="240" text-anchor="middle" font-size="16" font-weight="700" fill="#059669">4 · AAC Encode</text>
+  <text x="830.0" y="260" text-anchor="middle" font-size="11" fill="#64748b" font-style="italic">the only re-encode</text>
+  <text x="830.0" y="288" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">-c:a aac</text>
+  <text x="830.0" y="308" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">-b:a 128k</text>
+  <text x="830.0" y="328" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">single re-encode</text>
+  <rect x="960.0" y="130" width="200" height="230" rx="14" fill="#ffedd5" stroke="#ea580c" stroke-width="2" filter="url(#card-shadow)"/>
+  <rect x="960.0" y="130" width="200" height="6" rx="14" fill="#ea580c"/>
+  <g><path d="M 1044.0 198 Q 1044.0 176 1060.0 176 Q 1076.0 176 1076.0 198 L 1078.0 200 L 1042.0 200 Z" fill="none" stroke="#ea580c" stroke-width="2.5" stroke-linejoin="round"/><circle cx="1060.0" cy="174" r="2.5" fill="#ea580c"/><circle cx="1060.0" cy="204" r="3.5" fill="#ea580c"/><path d="M 1038.0 186 Q 1034.0 188 1034.0 194" fill="none" stroke="#ea580c" stroke-width="1.5" opacity="0.6"/><path d="M 1082.0 186 Q 1086.0 188 1086.0 194" fill="none" stroke="#ea580c" stroke-width="1.5" opacity="0.6"/></g>
+  <text x="1060.0" y="240" text-anchor="middle" font-size="16" font-weight="700" fill="#ea580c">5 · Final</text>
+  <text x="1060.0" y="260" text-anchor="middle" font-size="11" fill="#64748b" font-style="italic">shipped ringtone</text>
+  <text x="1060.0" y="288" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">war_drums_ringtone.m4a</text>
+  <text x="1060.0" y="308" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">30.000s · 480 KB</text>
+  <text x="1060.0" y="328" text-anchor="middle" font-size="12" font-family="ui-monospace, Menlo, monospace" fill="#334155">−14.1 LUFS · −5.2 dBFS</text>
+  <line x1="248.0" y1="245.0" x2="262.0" y2="245.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="478.0" y1="245.0" x2="492.0" y2="245.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="708.0" y1="245.0" x2="722.0" y2="245.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="938.0" y1="245.0" x2="952.0" y2="245.0" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="60" y="450" width="1080" height="160" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <g><circle cx="470.0" cy="477" r="11" fill="#16a34a"/><path d="M 465.0 477 L 469.0 481 L 475.0 473" stroke="#ffffff" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="490.0" y="482" font-size="16" font-weight="700" fill="#0f172a">Verify · 7-Point Quality Bar</text>
+  <text x="600.0" y="503" text-anchor="middle" font-size="12" fill="#64748b">scripts/verify-ringtone.sh — measures the deliverable against METHODOLOGY §9</text>
+  <rect x="80.0" y="528" width="138.57142857142858" height="32" rx="16" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="149.28571428571428" y="548.0" text-anchor="middle" font-size="11" font-weight="500" fill="#15803d">duration = 30.000s</text>
+  <rect x="228.57142857142858" y="528" width="138.57142857142858" height="32" rx="16" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="297.8571428571429" y="548.0" text-anchor="middle" font-size="11" font-weight="500" fill="#15803d">true peak ≤ −1 dBFS</text>
+  <rect x="377.14285714285717" y="528" width="138.57142857142858" height="32" rx="16" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="446.42857142857144" y="548.0" text-anchor="middle" font-size="11" font-weight="500" fill="#15803d">LUFS in [−16, −12]</text>
+  <rect x="525.7142857142858" y="528" width="138.57142857142858" height="32" rx="16" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="595.0000000000001" y="548.0" text-anchor="middle" font-size="11" font-weight="500" fill="#15803d">LRA in [8, 14] LU</text>
+  <rect x="674.2857142857143" y="528" width="138.57142857142858" height="32" rx="16" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="743.5714285714287" y="548.0" text-anchor="middle" font-size="11" font-weight="500" fill="#15803d">RMS@0s &lt; −25 dB</text>
+  <rect x="822.8571428571429" y="528" width="138.57142857142858" height="32" rx="16" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="892.1428571428572" y="548.0" text-anchor="middle" font-size="11" font-weight="500" fill="#15803d">RMS@15s near peak</text>
+  <rect x="971.4285714285716" y="528" width="138.57142857142858" height="32" rx="16" fill="#dcfce7" stroke="#16a34a" stroke-width="1"/>
+  <text x="1040.7142857142858" y="548.0" text-anchor="middle" font-size="11" font-weight="500" fill="#15803d">RMS@29.7s &lt; −40 dB</text>
+  <text x="600.0" y="590" text-anchor="middle" font-size="13" fill="#059669" font-weight="600">→ exit code = number of failures (0 = ship it)</text>
+  <path d="M 1060.0 360 L 1060.0 442" stroke="#475569" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#arrow)" fill="none"/>
+  <text x="1070.0" y="409.0" font-size="11" fill="#64748b" font-style="italic">verify</text>
+</svg>
