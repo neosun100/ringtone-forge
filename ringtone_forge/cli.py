@@ -70,7 +70,11 @@ def _trim_and_envelope(
     if envelope_filter:
         cmd += ["-af", envelope_filter, "-c:a", "aac", "-b:a", "128k"]
     else:
-        cmd += ["-c:a", "copy"]
+        # Even without envelope, transcode to AAC so any input format
+        # (mp3, flac, wav, m4a) lands cleanly in the .m4a container.
+        # Stream-copy would fail when the source codec doesn't match the
+        # output container (e.g. mp3 → .m4a is rejected by the ipod muxer).
+        cmd += ["-c:a", "aac", "-b:a", "192k"]
     cmd.append(str(dst))
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
@@ -80,6 +84,126 @@ def _trim_and_envelope(
 def _format_seconds(s: float) -> str:
     m, s = divmod(int(s + 0.5), 60)
     return f"{m}:{s:02d}"
+
+
+def _doctor() -> int:
+    """Print an environment-and-capability report for ringtone-forge.
+
+    Returns an exit code: 0 if everything looks operational, non-zero if
+    something critical is missing.
+    """
+    import platform as _platform
+    import shutil as _shutil
+
+    ok = _green if _ISATTY else (lambda s: s)
+    bad = _red if _ISATTY else (lambda s: s)
+    warn = _yellow if _ISATTY else (lambda s: s)
+    bold = _bold if _ISATTY else (lambda s: s)
+    dim = _dim if _ISATTY else (lambda s: s)
+
+    print(bold("ringtone-forge — environment doctor"))
+    print()
+
+    # System info
+    sysname = _platform.system()
+    machine = _platform.machine()
+    pyver = _platform.python_version()
+    print(f"  System:   {sysname} ({machine})")
+    print(f"  Python:   {pyver}")
+    try:
+        from ringtone_forge import __version__ as _v
+        print(f"  ringtone-forge: {_v}")
+    except Exception:
+        print(dim("  ringtone-forge: import failed"))
+
+    # External tools
+    print()
+    print(bold("External tools:"))
+    has_ffmpeg = _shutil.which("ffmpeg") is not None
+    has_ffprobe = _shutil.which("ffprobe") is not None
+    print(f"  ffmpeg:   {ok('✓ available') if has_ffmpeg else bad('✗ MISSING — install via brew install ffmpeg')}")
+    print(f"  ffprobe:  {ok('✓ available') if has_ffprobe else bad('✗ MISSING')}")
+    has_uv = _shutil.which("uv") is not None
+    print(f"  uv:       {ok('✓ available') if has_uv else dim('✗ not found (only needed for uv run)')}")
+
+    # Optional Python deps
+    print()
+    print(bold("Python deps (baseline):"))
+    for dep in ("librosa", "numpy", "scipy", "soundfile"):
+        try:
+            mod = __import__(dep)
+            ver = getattr(mod, "__version__", "?")
+            print(f"  {dep:<12} {ok(f'✓ {ver}')}")
+        except ImportError:
+            print(f"  {dep:<12} {bad('✗ MISSING — uv sync')}")
+
+    print()
+    print(bold("Python deps (optional [deep]):"))
+    has_torch = False
+    has_demucs = False
+    try:
+        import torch as _torch
+        has_torch = True
+        print(f"  {'torch':<12} {ok(f'✓ {_torch.__version__}')}")
+    except ImportError:
+        print(f"  {'torch':<12} {warn('— not installed (uv sync --extra deep adds it)')}")
+    try:
+        import demucs as _d
+        has_demucs = True
+        print(f"  {'demucs':<12} {ok('✓ installed')}")
+    except ImportError:
+        print(f"  {'demucs':<12} {warn('— not installed')}")
+
+    # Backends
+    print()
+    print(bold("Hardware backends:"))
+    if has_torch:
+        mps_avail = _torch.backends.mps.is_available() and _torch.backends.mps.is_built()
+        cuda_avail = _torch.cuda.is_available()
+        print(f"  MPS (Apple GPU):  {ok('✓ available') if mps_avail else dim('— not available')}")
+        if cuda_avail:
+            gpu_name = _torch.cuda.get_device_name(0)
+            print(f"  CUDA (NVIDIA):    {ok(f'✓ available — {gpu_name}')}")
+        else:
+            print(f"  CUDA (NVIDIA):    {dim('— not available')}")
+        print(f"  CPU:              {ok('✓ always')}")
+    else:
+        print(f"  MPS / CUDA:       {dim('— PyTorch not installed; only CPU heuristics available')}")
+        print(f"  CPU:              {ok('✓ always')}")
+
+    # Algorithms
+    print()
+    print(bold("Available algorithms:"))
+    print(f"  loudness    {ok('✓')} — RMS-max sliding window")
+    print(f"  features    {ok('✓')} — multi-feature heuristic (default fallback)")
+    print(f"  structural  {ok('✓')} — chroma SSM chorus detection")
+    if has_torch and has_demucs:
+        print(f"  stems       {ok('✓')} — demucs source separation + vocal-aware (default)")
+    else:
+        print(f"  stems       {warn('— uv sync --extra deep enables this')}")
+
+    # Recommendation
+    print()
+    print(bold("Recommended for this environment:"))
+    if has_torch and has_demucs:
+        if has_torch and _torch.backends.mps.is_available():
+            print(f"  {ok('--algo stems --device auto')} → uses MPS")
+        elif has_torch and _torch.cuda.is_available():
+            print(f"  {ok('--algo stems --device auto')} → uses CUDA")
+        else:
+            print(f"  {ok('--algo stems --device cpu')} → demucs on CPU (slower, ~30-50s/song)")
+    else:
+        print(f"  {ok('--algo features')} → librosa heuristics (fast, no GPU needed)")
+
+    # Final status
+    print()
+    if not (has_ffmpeg and has_ffprobe):
+        print(bad("⚠ ffmpeg is required and missing. Install before using ringtone-forge."))
+        return 2
+    if not has_torch:
+        print(warn("ℹ Baseline only. For best chorus detection, install [deep] extras."))
+    print(ok("✓ ready to forge."))
+    return 0
 
 
 def _measure_source_lufs(src: Path) -> float | None:
@@ -103,12 +227,17 @@ def _measure_source_lufs(src: Path) -> float | None:
 
 
 def main() -> None:
+    # --doctor is a special early-exit flag (no input file needed)
+    if len(sys.argv) >= 2 and sys.argv[1] in ("--doctor", "doctor"):
+        sys.exit(_doctor())
+
     parser = argparse.ArgumentParser(
         prog="ringtone-forge",
         description="Forge a 30-second ringtone from any audio source — intelligent, agent-style.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 examples:
+  ringtone-forge --doctor                       # check environment + recommend config
   ringtone-forge song.mp3
   ringtone-forge song.mp3 my_ringtone.m4a
   ringtone-forge song.mp3 --algo structural --preset vocal

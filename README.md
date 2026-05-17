@@ -8,6 +8,7 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-MPS%20%7C%20CUDA%20%7C%20CPU-ee4c2c.svg)](https://pytorch.org/)
 [![demucs](https://img.shields.io/badge/audio-demucs-c0392b.svg)](https://github.com/facebookresearch/demucs)
 [![uv](https://img.shields.io/badge/managed%20with-uv-7c3aed.svg)](https://github.com/astral-sh/uv)
+[![tests](https://img.shields.io/badge/tests-93%20passing-brightgreen.svg)](#testing)
 
 A ringtone is a 30-second story. Most songs spend the first 30 seconds
 warming up before they reach the line you actually want to hear.
@@ -209,6 +210,32 @@ ringtone-forge/
 ```
 
 ---
+
+## Testing
+
+The project ships with a layered test suite (93 tests as of v2.3). Run
+the full local CI:
+
+```bash
+./scripts/run-tests.sh                # full: unit → integration → regression → e2e
+./scripts/run-tests.sh --fast         # unit tests only, no slow markers
+```
+
+What gets covered:
+
+| Layer | Count | What it guards |
+|---|---|---|
+| **Unit** | 73 | Pure-Python logic per module: presets, classifier decision tree, analyzer windows, alignment math, verify checks |
+| **Integration** | 8 | CLI subprocess: `--help`, `--analyze --json`, `--no-envelope`, `--algo features/stems` |
+| **Regression** | 10 | The 5 reference songs' classifications and chorus picks are pinned; any drift fails the build |
+| **E2E** | 2 | Full pipeline produces a 30s ringtone whose duration + fade-out check pass |
+
+Tests automatically skip when their required capability is missing — see
+[CONTRIBUTING.md](CONTRIBUTING.md) for the full skip-marker matrix.
+
+```bash
+uv run ringtone-forge --doctor        # see exactly what your environment supports
+```
 
 ## License
 

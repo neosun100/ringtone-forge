@@ -1,6 +1,6 @@
 [project]
 name = "ringtone-forge"
-version = "2.2.0"
+version = "2.3.0"
 description = "Intelligent 30-second ringtone forge with chorus detection and genre-adaptive volume envelopes."
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
@@ -34,6 +34,11 @@ deep = [
     "torchaudio>=2.4,<2.5",
     "demucs>=4.0",
     "madmom @ git+https://github.com/CPJKU/madmom",
+]
+
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
 ]
 
 [project.scripts]

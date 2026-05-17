@@ -10,6 +10,68 @@ and [ANALYSIS.md](ANALYSIS.md) (chorus detection).
 
 ---
 
+## [2.3.0] — 2026-05-17
+
+> **The test harness.** A real test suite (93 tests) + `--doctor` env probe
+> + local CI runner script. The forge now self-checks before every commit.
+
+### Added
+
+- **`tests/`** — full layered test suite:
+  - 73 unit tests (envelope math, classifier decision tree, analyzer
+    windows, chorus-aware alignment math, verify checks).
+  - 8 integration tests (CLI subprocess, `--analyze --json`, `--no-envelope`).
+  - 10 regression tests (5 reference songs' classifications + chorus picks
+    pinned with ±2s tolerance; pinned `PINNED_PICKS_V22`).
+  - 2 E2E tests (full pipeline produces valid 30s ringtone, duration +
+    fade-out checks pass).
+- **`tests/conftest.py`** — shared fixtures including 5 reference song
+  paths + synthetic-audio fixtures for unit tests that don't need real
+  music.
+- **Pytest markers** for capability-aware skipping:
+  - `requires_torch` / `requires_mps` / `requires_cuda` / `requires_ffmpeg`
+    / `requires_real_audio` / `slow`.
+  - Tests auto-skip when their required capability isn't available — same
+    test file works on Apple Silicon, Linux x86_64 with CUDA, and CPU-only
+    environments.
+- **`ringtone-forge --doctor`** — environment self-check command:
+  reports system, Python, ffmpeg, optional [deep] deps, available
+  hardware backends (MPS/CUDA/CPU), available algorithms, and
+  recommended config for the current machine.
+- **`scripts/run-tests.sh`** — local CI runner that executes the four
+  layers in sequence with summary output. `--fast` for dev loop, `--ci`
+  for fail-fast mode.
+- **`CONTRIBUTING.md`** — how to add tests, update regression baselines,
+  add new test songs, and submit changes.
+
+### Fixed
+
+- **`--no-envelope` mp3 → m4a transcode bug** discovered by the new
+  integration test: stream-copying mp3 audio into an .m4a (ipod) container
+  was rejected by ffmpeg ("Could not find tag for codec mp3 in stream").
+  Fixed by always re-encoding to AAC at 192k in `--no-envelope` mode
+  instead of `-c:a copy`.
+
+### Changed
+
+- `pyproject.toml`:
+  - Added `[dev]` extras: `pytest>=8`, `pytest-cov>=5`.
+  - Install with `uv sync --extra dev` for tests, or `uv sync --extra deep
+    --extra dev` for everything.
+- `pytest.ini` configures markers and warning filters.
+
+### Test results on the validation matrix
+
+| Suite | Count | macOS MPS | macOS CPU | Linux CUDA |
+|---|---|---|---|---|
+| Unit | 73 | ✓ | ✓ | ✓ |
+| Integration | 8 | ✓ | ✓ | ✓ |
+| Regression | 10 | ✓ | ✓ | ✓ |
+| E2E | 2 | ✓ | ✓ | ✓ |
+| **Total** | **93** | **all green** | **all green** | **all green** |
+
+---
+
 ## [2.2.0] — 2026-05-17
 
 > **The deep agent.** Vocal-aware chorus detection via demucs (PyTorch with
