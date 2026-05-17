@@ -278,6 +278,33 @@ examples:
                         help="emit a JSON report instead of human-readable output")
     parser.add_argument("--quiet", action="store_true", help="suppress non-essential output")
 
+    # ─── Envelope parameter overrides (any of these overrides the preset default) ───
+    env_grp = parser.add_argument_group("envelope overrides",
+        description="override individual envelope parameters (otherwise preset defaults are used)")
+    env_grp.add_argument("--rise", type=float, default=None,
+                         help="rise duration in seconds (default: per-preset)")
+    env_grp.add_argument("--sustain", type=float, default=None,
+                         help="sustain duration in seconds (default: per-preset)")
+    env_grp.add_argument("--drop", type=float, default=None,
+                         help="drop duration in seconds (default: per-preset)")
+    env_grp.add_argument("--start-amp", type=float, default=None,
+                         help="start amplitude in (0, 1] (default: per-preset)")
+    env_grp.add_argument("--duration", type=float, default=30.0,
+                         help="total ringtone duration in seconds (default: 30)")
+
+    # ─── LLM agent mode ──────────────────────────────────────────────────────
+    llm_grp = parser.add_argument_group("LLM agent",
+        description="let an LLM make tuning decisions (requires API key or local Ollama)")
+    llm_grp.add_argument("--tune", type=str, default=None,
+                         help='natural-language preference, e.g. "开头再轻一点"  (LLM translates to params)')
+    llm_grp.add_argument("--agent", action="store_true",
+                         help="full LLM-in-the-loop: tune → forge → verify → diagnose → retry (max 3)")
+    llm_grp.add_argument("--llm", choices=["auto", "anthropic", "openai", "ollama", "mock"],
+                         default="auto",
+                         help="LLM backend (default: auto-detect best available)")
+    llm_grp.add_argument("--max-retries", type=int, default=3,
+                         help="max --agent retry attempts on verify failure (default: 3)")
+
     args = parser.parse_args()
     _check_ffmpeg()
 
@@ -387,11 +414,54 @@ examples:
                                f"score={c.score:.3f}  {feat_summary}"))
 
     # --- Pick envelope preset (must happen before chorus-align so we know sustain) -
-    from ringtone_forge.envelope import get_preset, build_filter_expression, render_ascii
+    from ringtone_forge.envelope import (
+        get_preset, build_filter_expression, render_ascii, resolve_envelope_params
+    )
     preset_name = args.preset if args.preset != "auto" else cls.audio_type
-    preset = get_preset(preset_name)
+
+    # Collect explicit envelope overrides from CLI flags.
+    env_overrides = {
+        "user_rise": args.rise,
+        "user_sustain": args.sustain,
+        "user_drop": args.drop,
+        "user_start_amp": args.start_amp,
+        "user_duration": args.duration if args.duration != 30.0 else None,
+    }
+    # Drop Nones for clean kwargs.
+    env_overrides = {k: v for k, v in env_overrides.items() if v is not None}
+
+    # --- LLM tune: natural language → params (only if --tune was given) ---
+    llm_explanation = ""
+    if args.tune:
+        from ringtone_forge.llm_tuner import tune_from_preference
+        if not args.quiet:
+            print(_dim(f"  → calling LLM ({args.llm}) to interpret '{args.tune}' …"))
+        tune_result = tune_from_preference(
+            audio_type=cls.audio_type,
+            user_preference=args.tune,
+            duration=args.duration,
+            classification_features={
+                "mfcc_variance": cls.mfcc_variance,
+                "chroma_std": cls.chroma_std,
+                "onset_rate": cls.onset_rate,
+                "zero_crossing_rate": cls.zero_crossing_rate,
+            },
+            backend=args.llm,
+        )
+        # LLM-suggested overrides take precedence over CLI flags only if CLI flag was unset.
+        for k, v in tune_result.to_envelope_kwargs().items():
+            env_overrides.setdefault(k, v)
+        llm_explanation = tune_result.explanation
+        if not args.quiet:
+            print(f"  llm tune ({_bold(tune_result.backend)}): {tune_result.explanation}")
+
+    preset = resolve_envelope_params(
+        audio_type=preset_name,
+        **env_overrides,
+    )
     if not args.quiet:
-        print(f"  envelope: {_bold(preset.name)}  "
+        custom = "" if not env_overrides else _yellow(" [customised]")
+        print(f"  envelope: {_bold(preset.name)}{custom}  "
               f"(rise {preset.rise_seconds:g}s exp + sustain {preset.sustain_seconds:g}s + drop {preset.drop_seconds:g}s)")
 
     # --- Step 3.5: chorus-aware envelope alignment -----------------------
@@ -463,31 +533,86 @@ examples:
         size = out_path.stat().st_size
         print(_green(f"✓ wrote {out_path.name} ({size/1024:.0f} KB)"))
 
-    # --- Step 7: verify ---------------------------------------------------
+    # --- Step 7: verify (with optional --agent retry loop) --------------
     if args.no_verify or args.no_envelope:
         return
 
     from ringtone_forge.verify import verify
-    # Source-integrity check needs the original LUFS — measure it lightly.
     src_lufs = _measure_source_lufs(src)
-    report = verify(
-        out_path,
-        preset_start_amp=preset.start_amp,
-        preset_rise_seconds=preset.rise_seconds,
-        preset_sustain_seconds=preset.sustain_seconds,
-        source_lufs=src_lufs,
-    )
-    if not args.quiet:
+
+    def _run_verify(preset_obj):
+        return verify(
+            out_path,
+            preset_start_amp=preset_obj.start_amp,
+            preset_rise_seconds=preset_obj.rise_seconds,
+            preset_sustain_seconds=preset_obj.sustain_seconds,
+            source_lufs=src_lufs,
+        )
+
+    def _print_report(rep):
+        if args.quiet:
+            return
         print()
         print(_bold("Verification (preset-aware quality bar):"))
-        for c in report.checks:
+        for c in rep.checks:
             mark = _green("✓") if c.passed else _red("✗")
             print(f"  {mark} {c.name:<54} {c.actual}")
-        if report.all_passed:
-            print(_green("\n✓ all checks passed."))
+
+    report = _run_verify(preset)
+    _print_report(report)
+
+    # --agent retry loop: LLM diagnose + adjust + re-forge
+    attempts_left = args.max_retries if args.agent else 0
+    while not report.all_passed and attempts_left > 0:
+        if args.quiet:
+            print(_yellow(f"\n⚠ {report.failures} check(s) failed — agent retrying ({args.max_retries - attempts_left + 1}/{args.max_retries}) …"))
         else:
+            print(_yellow(f"\n⚠ {report.failures} check(s) failed — calling LLM ({args.llm}) to diagnose …"))
+
+        from ringtone_forge.llm_tuner import diagnose_verify_failure
+        failed_checks = [
+            {"name": c.name, "actual": c.actual}
+            for c in report.checks if not c.passed
+        ]
+        current_params = {
+            "rise": preset.rise_seconds,
+            "sustain": preset.sustain_seconds,
+            "drop": preset.drop_seconds,
+            "start_amp": preset.start_amp,
+            "preset": preset.name,
+        }
+        diag = diagnose_verify_failure(failed_checks, current_params, backend=args.llm)
+
+        if not args.quiet:
+            print(f"  agent ({_bold(diag.backend)}): {diag.explanation}")
+
+        # Merge diagnose suggestions into env_overrides and re-resolve preset.
+        new_overrides = diag.to_envelope_kwargs()
+        if not new_overrides:
+            if not args.quiet:
+                print(_dim("  (LLM had no concrete suggestion; stopping retry loop)"))
+            break
+        env_overrides.update(new_overrides)
+        preset = resolve_envelope_params(audio_type=preset_name, **env_overrides)
+        if not args.quiet:
+            print(f"  retrying with envelope: rise={preset.rise_seconds:g}s "
+                  f"sustain={preset.sustain_seconds:g}s drop={preset.drop_seconds:g}s "
+                  f"start_amp={preset.start_amp:.2f}")
+
+        # Re-forge with new params
+        envelope_filter = build_filter_expression(preset)
+        _trim_and_envelope(src, out_path, start_seconds, args.duration, envelope_filter)
+        report = _run_verify(preset)
+        _print_report(report)
+        attempts_left -= 1
+
+    if report.all_passed:
+        if not args.quiet:
+            print(_green("\n✓ all checks passed."))
+    else:
+        if not args.quiet:
             print(_yellow(f"\n⚠ {report.failures} check(s) failed — review above."))
-            sys.exit(report.failures)
+        sys.exit(report.failures)
 
 
 if __name__ == "__main__":

@@ -154,6 +154,10 @@ uv run ringtone-forge song.mp3 --device cuda        # NVIDIA GPU
 
 # Override the agent
 uv run ringtone-forge song.mp3 --start 96.0         # I know where the chorus is
+
+# v2.4: LLM-in-the-loop
+uv run ringtone-forge song.mp3 --tune "开头再轻一点"       # natural language → params via LLM
+uv run ringtone-forge song.mp3 --agent --max-retries 3    # full LLM-in-the-loop with retry
 uv run ringtone-forge song.mp3 --preset percussive  # force envelope shape
 uv run ringtone-forge song.mp3 --no-envelope        # raw 30s trim only
 ```

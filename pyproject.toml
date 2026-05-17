@@ -1,6 +1,6 @@
 [project]
 name = "ringtone-forge"
-version = "2.3.0"
+version = "2.4.0"
 description = "Intelligent 30-second ringtone forge with chorus detection and genre-adaptive volume envelopes."
 readme = "README.md"
 requires-python = ">=3.10,<3.13"

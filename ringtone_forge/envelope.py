@@ -107,13 +107,97 @@ PRESETS: dict[PresetName, EnvelopePreset] = {
 }
 
 
-def get_preset(name: PresetName | str) -> EnvelopePreset:
-    """Look up a preset by name; raises ``KeyError`` if unknown."""
+def get_preset(
+    name: PresetName | str,
+    *,
+    rise: float | None = None,
+    sustain: float | None = None,
+    drop: float | None = None,
+    start_amp: float | None = None,
+    duration: float | None = None,
+) -> EnvelopePreset:
+    """Look up a preset by name, optionally overriding any parameter.
+
+    All keyword args are optional. Any value supplied replaces the preset
+    default. If ``duration`` is given, the rise/sustain/drop are scaled
+    proportionally so they still sum to ``duration``.
+
+    Examples
+    --------
+    >>> get_preset("vocal")                                   # standard 5+22+3
+    >>> get_preset("vocal", rise=10)                          # 10+17+3 (sustain shrinks)
+    >>> get_preset("vocal", rise=8, sustain=19, drop=3)       # full custom (must sum to 30)
+    >>> get_preset("vocal", duration=15)                      # scaled down to 15s total
+    """
     if name not in PRESETS:
         raise KeyError(
             f"Unknown envelope preset: {name!r}. Choose one of {list(PRESETS.keys())}."
         )
-    return PRESETS[name]
+    base = PRESETS[name]
+
+    # Apply duration scaling first if requested
+    if duration is not None and duration > 0 and duration != base.total_seconds:
+        scale = duration / base.total_seconds
+        scaled_rise = base.rise_seconds * scale
+        scaled_sustain = base.sustain_seconds * scale
+        scaled_drop = base.drop_seconds * scale
+    else:
+        scaled_rise = base.rise_seconds
+        scaled_sustain = base.sustain_seconds
+        scaled_drop = base.drop_seconds
+
+    # Apply explicit overrides on top of scaling
+    final_rise = rise if rise is not None else scaled_rise
+    final_sustain = sustain if sustain is not None else scaled_sustain
+    final_drop = drop if drop is not None else scaled_drop
+    final_start_amp = start_amp if start_amp is not None else base.start_amp
+
+    # Sanity check — non-negative durations
+    if final_rise < 0 or final_sustain < 0 or final_drop < 0:
+        raise ValueError(
+            f"All durations must be ≥ 0; got rise={final_rise}, "
+            f"sustain={final_sustain}, drop={final_drop}"
+        )
+    if not (0.0 < final_start_amp <= 1.0):
+        raise ValueError(f"start_amp must be in (0, 1]; got {final_start_amp}")
+
+    return EnvelopePreset(
+        name=base.name,
+        start_amp=final_start_amp,
+        rise_seconds=final_rise,
+        sustain_seconds=final_sustain,
+        drop_seconds=final_drop,
+    )
+
+
+def resolve_envelope_params(
+    audio_type: str,
+    *,
+    user_rise: float | None = None,
+    user_sustain: float | None = None,
+    user_drop: float | None = None,
+    user_start_amp: float | None = None,
+    user_duration: float | None = None,
+    user_preset: str | None = None,
+) -> EnvelopePreset:
+    """Resolve the final envelope spec for a given run.
+
+    Decision order (later overrides earlier):
+      1. Pick a preset by ``audio_type`` (vocal/melodic/percussive)
+      2. If ``user_preset`` is given, override the preset name
+      3. Apply user-specified rise/sustain/drop/start_amp/duration on top
+
+    This is the single entry point used by the CLI and by the LLM tuner.
+    """
+    preset_name = user_preset if user_preset else audio_type
+    return get_preset(
+        preset_name,
+        rise=user_rise,
+        sustain=user_sustain,
+        drop=user_drop,
+        start_amp=user_start_amp,
+        duration=user_duration,
+    )
 
 
 def build_filter_expression(preset: EnvelopePreset) -> str:

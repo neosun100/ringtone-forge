@@ -10,6 +10,83 @@ and [ANALYSIS.md](ANALYSIS.md) (chorus detection).
 
 ---
 
+## [2.4.0] — 2026-05-17
+
+> **Real LLM in the loop.** The agent isn't just a Skill that triggers a CLI
+> anymore — when you pass `--tune` or `--agent`, an actual LLM call happens
+> *inside the pipeline* to translate user preferences, propose parameters,
+> and self-heal on verify failures.
+
+### Added
+
+- **`ringtone_forge.llm_tuner`** — new module providing `tune_from_preference()`
+  and `diagnose_verify_failure()`. Three real backends + a mock for tests:
+  - `anthropic` — Claude Sonnet 4.5 via `ANTHROPIC_API_KEY`
+  - `openai` — GPT-4o-mini via `OPENAI_API_KEY`
+  - `ollama` — Local Llama 3.2 via `ollama serve`
+  - `mock` — deterministic fake response, always available
+  - `auto` — picks the best available, in that priority order
+- **`--tune "<natural-language>"`** CLI flag — translates user preference
+  into envelope parameters via LLM. Examples:
+  - `--tune "开头再轻一点"` → `start_amp 0.30, rise 10s`
+  - `--tune "更带感"` → `rise 3s, sustain 24s, start_amp 0.6`
+- **`--agent`** CLI flag — full LLM-in-the-loop:
+  1. Classify the source (existing behaviour)
+  2. Forge with current parameters
+  3. If verify reports failures, send the report to the LLM with
+     `diagnose_verify_failure()`
+  4. Apply the LLM's suggested overrides and re-forge
+  5. Repeat up to `--max-retries` (default 3) attempts
+  6. Stop when verify passes or retries exhausted
+- **`--llm {auto,anthropic,openai,ollama,mock}`** — explicit backend choice
+- **`--max-retries N`** — agent retry budget (default 3)
+- **`--rise / --sustain / --drop / --start-amp / --duration`** envelope
+  parameter overrides — the LLM and humans both use these to customise.
+- **`envelope.resolve_envelope_params()`** — single resolution entry point
+  used by both the CLI and the LLM tuner. Supports duration scaling so
+  presets work at any total length, not just 30s.
+
+### Changed
+
+- **`envelope.get_preset()`** now accepts `rise=`, `sustain=`, `drop=`,
+  `start_amp=`, `duration=` keyword overrides. Backwards compatible — no
+  override = identical to v2.3 behaviour.
+- **`SKILL.md` rewritten as a decision manual** (~/.kiro/skills/ringtone-forge/SKILL.md)
+  - 4 tunable axes documented with ranges
+  - 6-step decision workflow (recon → reason intent → reason source →
+    forge → read verify → report)
+  - Intent → parameter mapping table for common Chinese + English requests
+  - 5 conversational examples covering simple / preference / short-video /
+    tricky / explicit-control scenarios
+  - Backend selection guidance + hardware notes + failure handling
+
+### Test set verified
+
+- **49 new unit tests** added (envelope overrides + duration scaling +
+  llm_tuner mock + response parsing). Total 122 / 122 pass on M5 Max MPS
+  in 49 seconds.
+- End-to-end tested:
+  - `--tune "渐入慢一倍"` on 跳楼机.mp3 → LLM returned rise=10, env shown
+    as `[customised]`, verify all-pass on first attempt
+  - `--agent --max-retries 3` on Brainiac_Maniac.mp3 → first attempt had
+    3 verify fails, LLM diagnose + adjust → second attempt all-pass
+
+### Why this matters
+
+v2.3 had the right architecture but a misnomer: the project claimed
+"LLM Agent × neural network" while LLM never executed inside the
+pipeline. v2.4 closes that gap. Now both halves are real:
+- **Outside the pipeline**: external Agent platforms (Kiro, Claude Code,
+  Cursor) still call ringtone-forge via the Skill — same as v2.3.
+- **Inside the pipeline**: when --tune or --agent is used, LLM calls
+  happen at parameter-decision points. The exact same Anthropic / OpenAI
+  / Ollama API is used both inside and outside.
+
+The "AI three-layer paradigm" finally describes reality: LLM decides,
+neural network computes (Demucs), engineering layer executes (ffmpeg).
+
+---
+
 ## [2.3.0] — 2026-05-17
 
 > **The test harness.** A real test suite (93 tests) + `--doctor` env probe
